@@ -718,7 +718,7 @@
                         <span class="score-number" id="finalScore">0</span>
                         <span class="score-total">/ <span id="totalQuestions">0</span></span>
                     </div>
-                    <div class="score-percentage" id="scorePercentage">正确率: 0%</div>
+                    <div class="score-percentage" id="scorePercentage">0%</div>
                     <div class="result-badge" id="resultBadge">评级</div>
                 </div>
 
@@ -2010,7 +2010,8 @@
                     "B. 基于直觉做年度预算",
                     "C. 实时监控运营指标",
                     "D. A/B测试营销策略效果"
-                ],                answer: 1,
+                ],
+                answer: 1,
                 explanation: "依赖主观经验而非数据验证,属于传统管理模式,与数字化背道而驰。"
             },
             {
@@ -2297,6 +2298,7 @@
         let answers = [];
         let answeredQuestions = new Set();
 
+        // 打乱数组顺序（Fisher-Yates算法）
         function shuffleArray(array) {
             const newArray = [...array];
             for (let i = newArray.length - 1; i > 0; i--) {
@@ -2306,16 +2308,46 @@
             return newArray;
         }
 
+        // 打乱单道题的选项顺序
+        function shuffleOptions(question) {
+            // 创建选项索引数组 [0, 1, 2, 3]
+            const indices = [0, 1, 2, 3];
+            // 打乱索引顺序
+            const shuffledIndices = shuffleArray(indices);
+            
+            // 根据打乱后的索引重新排列选项
+            const newOptions = shuffledIndices.map(idx => question.options[idx]);
+            
+            // 找到正确答案在新选项中的位置
+            const newAnswer = shuffledIndices.indexOf(question.answer);
+            
+            return {
+                ...question,
+                options: newOptions,
+                answer: newAnswer,
+                // 保存原始答案信息用于显示
+                originalAnswer: question.answer,
+                originalOptionText: question.options[question.answer]
+            };
+        }
+
         function startModule(module) {
             currentModule = module;
             
+            let rawQuestions;
             if (module === 'ai') {
-                currentQuestions = shuffleArray([...aiQuestions]);
+                rawQuestions = [...aiQuestions];
                 document.getElementById('examTitle').textContent = '🤖 AI大模型与智能体知识考试';
             } else {
-                currentQuestions = shuffleArray([...digitalQuestions]);
+                rawQuestions = [...digitalQuestions];
                 document.getElementById('examTitle').textContent = '🏢 企业信息化、数字化与数智化知识考试';
             }
+
+            // 先打乱题目顺序
+            rawQuestions = shuffleArray(rawQuestions);
+            
+            // 再打乱每道题的选项顺序
+            currentQuestions = rawQuestions.map(q => shuffleOptions(q));
 
             currentIndex = 0;
             score = 0;
@@ -2361,10 +2393,13 @@
                     className += ' selected';
                 }
                 
+                // 提取选项文本（去掉原有的A/B/C/D前缀）
+                const optionText = option.substring(3);
+                
                 html += `
                     <div class="${className}" onclick="selectOption(${idx})" data-idx="${idx}">
                         <span class="option-letter">${String.fromCharCode(65 + idx)}</span>
-                        <span>${option.substring(3)}</span>
+                        <span>${optionText}</span>
                     </div>
                 `;
             });
@@ -2373,13 +2408,16 @@
 
             if (hasAnswered) {
                 const isCorrect = userAnswer === question.answer;
+                // 获取正确答案的显示文本
+                const correctOptionText = question.options[question.answer].substring(3);
+                
                 html += `
                     <div class="feedback ${isCorrect ? 'correct' : 'wrong'}">
                         <div class="feedback-title">
                             ${isCorrect ? '✅ 回答正确!' : '❌ 回答错误'}
                         </div>
                         <div>${question.explanation}</div>
-                        ${!isCorrect ? `<div style="margin-top: 8px; font-weight: 600;">正确答案: ${String.fromCharCode(65 + question.answer)}</div>` : ''}
+                        ${!isCorrect ? `<div style="margin-top: 8px; font-weight: 600;">正确答案: ${String.fromCharCode(65 + question.answer)}. ${correctOptionText}</div>` : ''}
                     </div>
                 `;
             }
